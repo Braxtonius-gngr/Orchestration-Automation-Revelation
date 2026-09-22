@@ -22,6 +22,41 @@ class JumpTaskAutomator {
 		await this.controllerPage.goto(dashboardUrl, { waitUntil: 'domcontentloaded' });
 	}
 
+	async ensureAuthenticated() {
+		const pageUrl = this.controllerPage.url();
+		const authenticated = /\/my-account|\/offers|\/dashboard/i.test(pageUrl)
+			|| (await this.controllerPage.getByRole('button', { name: /Start Task|Continue/i }).first().isVisible({ timeout: 1500 }).catch(() => false));
+		if (authenticated) return;
+
+		const loginCandidate = this.controllerPage.locator(
+			'button:has-text("Log in"), button:has-text("Login"), button:has-text("Sign in"), a:has-text("Log in"), a:has-text("Login"), a:has-text("Sign in"), button:has-text("Continue with Google"), button:has-text("Continue with wallet")'
+		).first();
+		if (await loginCandidate.isVisible({ timeout: 2500 }).catch(() => false)) {
+			await loginCandidate.click();
+			await this.controllerPage.waitForTimeout(2000);
+		}
+
+		const googleAuthPopup = this.context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
+		const googleButton = this.controllerPage.locator(
+			'button:has-text("Continue with Google"), button:has-text("Log in with Google"), a:has-text("Continue with Google")'
+		).first();
+		if (await googleButton.isVisible({ timeout: 2500 }).catch(() => false)) {
+			await googleButton.click();
+			const authPage = await googleAuthPopup;
+			if (authPage) {
+				await authPage.waitForLoadState('domcontentloaded', { timeout: 20000 }).catch(() => {});
+			}
+		}
+
+		await this.controllerPage.waitForTimeout(3000);
+		const stillLoggedOut = await this.controllerPage.locator(
+			'button:has-text("Log in"), button:has-text("Login"), button:has-text("Sign in"), a:has-text("Log in"), a:has-text("Login"), a:has-text("Sign in")'
+		).first().isVisible({ timeout: 1500 }).catch(() => false);
+		if (stillLoggedOut) {
+			throw new Error('JumpTask login flow was detected but no authenticated session was established.');
+		}
+	}
+
 	async parseModalInstructions() {
 		const modal = this.controllerPage.locator('div[role="dialog"], .modal, body').filter({ hasText: 'Instructions' }).first();
 		await modal.waitFor({ state: 'visible', timeout: 8000 });
@@ -123,6 +158,8 @@ class JumpTaskAutomator {
 	async run(url) {
 		try {
 			await this.init(url);
+			console.log('1. Ensuring JumpTask session is authenticated...');
+			await this.ensureAuthenticated();
 			console.log('1. Parsing task modal instructions...');
 			const { searchKeyword, sectionHeading, targetDomain } = await this.parseModalInstructions();
 			console.log(`Parsed: Keyword="${searchKeyword}", Heading="${sectionHeading}", Domain="${targetDomain}"`);
