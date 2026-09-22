@@ -13,9 +13,13 @@ class JumpTaskAutomator {
 
 	async init(dashboardUrl) {
 		this.context = await chromium.launchPersistentContext(this.userDataDir, {
-			headless: true,
-			viewport: { width: 1440, height: 900 },
-			args: ['--disable-blink-features=AutomationControlled', '--start-maximized'],
+			headless: process.env.HEADLESS !== 'false',
+			args: [
+				'--disable-blink-features=AutomationControlled',
+				'--no-sandbox',
+				'--disable-setuid-sandbox',
+				'--disable-dev-shm-usage',
+			],
 			ignoreDefaultArgs: ['--enable-automation'],
 		});
 
@@ -60,14 +64,17 @@ class JumpTaskAutomator {
 	}
 
 	async parseModalInstructions() {
-		const modal = this.controllerPage.locator('div[role="dialog"], .modal, body').filter({ hasText: 'Instructions' }).first();
-		await modal.waitFor({ state: 'visible', timeout: 8000 });
-		const modalText = await modal.innerText();
+		await this.controllerPage.waitForFunction(
+			() => document.body.innerText.includes('Search this keyword:'),
+			{ timeout: 15000 },
+		);
+
+		const modalText = await this.controllerPage.locator('body').innerText();
 		const keywordMatch = modalText.match(/Search this keyword:\s*\n+([^\n\r]+)/i);
 		const searchKeyword = keywordMatch ? keywordMatch[1].trim() : 'earn money online';
 		const headingMatch = modalText.match(/section called\s+([^,]+),/i);
 		const sectionHeading = headingMatch ? headingMatch[1].trim() : 'Not money for nothing';
-		const exampleLink = modal.locator('a', { hasText: /see example/i }).first();
+		const exampleLink = this.controllerPage.locator('a').filter({ hasText: /see example/i }).first();
 		if (!(await exampleLink.count())) {
 			await this.controllerPage.screenshot({ path: 'debug-jumptask-page.png', fullPage: true });
 			await fs.writeFile('debug-jumptask-page.html', await this.controllerPage.content());

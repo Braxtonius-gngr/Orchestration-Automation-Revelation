@@ -1,9 +1,11 @@
 {
+  "name": "jumptask-automation",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "start": "node runner.js"
   },
   "dependencies": {
-    "playwright": "^1.63.0"
+    "playwright": "^1.40.0"
   }
 }
