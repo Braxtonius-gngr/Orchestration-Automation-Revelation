@@ -7,6 +7,8 @@ class JumpTaskAutomator {
 		this.userDataDir = path.resolve(userDataDir);
 		this.context = null;
 		this.controllerPage = null;
+		console.log(`Persistent profile path: ${this.userDataDir}`);
+		console.log(`Manual browser login command: chromium --user-data-dir=${this.userDataDir}`);
 	}
 
 	async init(dashboardUrl) {
